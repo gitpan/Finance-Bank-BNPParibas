@@ -4,3 +4,4 @@ Makefile.PL
 README
 lib/Finance/Bank/BNPParibas.pm
 t/00basic.t
+META.yml                                 Module meta-data (added by MakeMaker)

@@ -6,7 +6,7 @@ use WWW::Mechanize;
 #use LWP::Debug qw(+);
 use vars qw($VERSION);
 
-$VERSION = 0.07;
+$VERSION = 0.08;
 
 use constant BASE_URL        => 'https://www.secure.bnpparibas.net/controller?type=auth';
 use constant LOGIN_FORM_NAME => 'logincanalnet';
@@ -96,16 +96,8 @@ sub check_balance {
     $self->{ua}->form_name(LOGIN_FORM_NAME)
       or croak "Cannot find the login form '" . LOGIN_FORM_NAME . "'";
 
-    # XXX Because the input below are created with javascript, we
-    # have to manually add them to the Form.
-    # see http://rt.cpan.org/NoAuth/Bug.html?id=2940
-    $self->{ua}->{form}
-      ->push_input( "text", { type => "text", name => "userid", value => "" } );
-    $self->{ua}->{form}
-	  ->push_input( "text", { type => "text", name => "password", value => "" } );
-
     $self->{ua}->set_fields(
-        userid   => $self->{username},
+        login    => $self->{username},
         password => $self->{password},
     );
 
