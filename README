@@ -66,7 +66,11 @@ Account methods
 
 Statement methods
   date()
-    Returns the date when the statement occured, in DD/MM/YY format.
+    Returns the date when the statement occured, in YYYY-MM-DD format.
+
+  value_date()
+    Returns the date the transfer entry to an account is considered
+    effective, in YYYY-MM-DD format.
 
   description()
     Returns a brief description of the statement.
@@ -84,8 +88,8 @@ BUGS
     <http://rt.cpan.org/NoAuth/Bugs.html?Dist=Finance-Bank-BNPParibas>
 
 COPYRIGHT
-    Copyright 2002, Briac Pilpré. All Rights Reserved. This module can be
-    redistributed under the same terms as Perl itself.
+    Copyright 2002-2003, Briac Pilpré. All Rights Reserved. This module can
+    be redistributed under the same terms as Perl itself.
 
 AUTHOR
     Briac Pilpré <briac@cpan.org>

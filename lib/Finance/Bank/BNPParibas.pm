@@ -6,7 +6,7 @@ use WWW::Mechanize;
 #use LWP::Debug qw(+);
 use vars qw($VERSION);
 
-$VERSION = 0.05;
+$VERSION = 0.06;
 
 use constant BASE_URL        => 'https://www.secure.bnpparibas.net/controller?type=auth';
 use constant LOGIN_FORM_NAME => 'logincanalnet';
@@ -125,19 +125,26 @@ sub check_balance {
       or croak "Cannot find the account download form";
     $self->{ua}->quiet(0);
 
-    $self->{ua}->submit_form(
-        form_number => 1,
-        fields      => {
-            ch_rop         => 'tous',
-            ch_rop_fmt_fic => 'RTEXC',
-            ch_rop_fmt_dat => 'JJMMAA',
-            ch_rop_fmt_sep => 'VG',
-            ch_rop_dat     => 'tous',
-            ch_rop_dat_deb => '',
-            ch_rop_dat_fin => '',
-            ch_memo        => 'OUI',
-        },
+	# If there is only one account, no radio button is present in the form.
+	# We need to add one manually.
+	# see http://rt.cpan.org/Ticket/Display.html?id=3156
+    unless ( $self->{ua}->{form}->find_input( "ch_rop", "radio" ) ) {
+        $self->{ua}->{form}
+		  ->push_input( "radio", { type => "radio", name => "ch_rop", value => "tous" } );
+    }
+ 
+    $self->{ua}->set_fields(
+        ch_rop         => 'tous',
+        ch_rop_fmt_fic => 'RTEXC',
+        ch_rop_fmt_dat => 'JJMMAA',
+        ch_rop_fmt_sep => 'VG',
+        ch_rop_dat     => 'tous',
+        ch_rop_dat_deb => '',
+        ch_rop_dat_fin => '',
+        ch_memo        => 'OUI',
     );
+    
+	$self->{ua}->submit;
 
     foreach ( @{ $self->{ua}->{links} } ) {
         my $qif = $_->[0];
@@ -240,6 +247,11 @@ package Finance::Bank::BNPParibas::Statement;
 
 Returns the date when the statement occured, in YYYY-MM-DD format.
 
+=head2 value_date()
+
+Returns the date the transfer entry to an account is considered
+effective, in YYYY-MM-DD format.
+
 =head2 description()
 
 Returns a brief description of the statement.
@@ -262,18 +274,35 @@ sub new {
 
     my @entry = split ( /\t/, $statement );
 
-    $entry[0] = Finance::Bank::BNPParibas::_normalize_date( $entry[0] );
-    $entry[1] =~ s/\s+/ /g;
-    $entry[2] =~ s/,/./;
+    pop @entry;
 
-    bless [ @entry[ 0 .. 2 ] ], $class;
+    my $self = {};
+
+    $self->{date} = Finance::Bank::BNPParibas::_normalize_date( $entry[0] );
+    $entry[1] =~ s/\s+/ /g;
+    $self->{description} = $entry[1];
+    if ( scalar @entry == 3 ) {
+        $entry[2] =~ s/,/./;
+        $self->{amount} = $entry[2];
+    }
+    else {
+        $self->{value_date} =
+          Finance::Bank::BNPParibas::_normalize_date( $entry[2] );
+        $entry[3] =~ s/,/./;
+        $self->{amount} = $entry[3];
+    }
+
+    bless $self, $class;
 }
 
-sub date        { $_[0]->[0] }
-sub description { $_[0]->[1] }
-sub amount      { $_[0]->[2] }
+sub date        { $_[0]->{date} }
+sub value_date  { $_[0]->{value_date} }
+sub description { $_[0]->{description} }
+sub amount      { $_[0]->{amount} }
 
-sub as_string { join ( $_[1] || "\t", @{ $_[0] } ) }
+sub as_string { 
+	join ( $_[1] || "\t",  $_[0]->{date}, $_[0]->{description}, ($_[0]->{value_date} ||''), $_[0]->{amount} )
+}
 
 1;
 
