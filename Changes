@@ -1,3 +1,7 @@
+0.05 Sat Aug  2 18:12:32 CEST 2003
+     - the 'use constant' has been changed to the old syntax (no
+       hashref reference) (Thanks to Sniper).
+
 0.04 Sat Aug  2 07:39:54 CEST 2003
      - The login page has changed. (Thanks to Sniper)
   

@@ -6,12 +6,10 @@ use WWW::Mechanize;
 #use LWP::Debug qw(+);
 use vars qw($VERSION);
 
-$VERSION = 0.04;
+$VERSION = 0.05;
 
-use constant {
-    BASE_URL        => 'https://www.secure.bnpparibas.net/controller?type=auth',
-    LOGIN_FORM_NAME => 'logincanalnet',
-};
+use constant BASE_URL        => 'https://www.secure.bnpparibas.net/controller?type=auth';
+use constant LOGIN_FORM_NAME => 'logincanalnet';
 
 =pod
 
