@@ -6,7 +6,7 @@ use WWW::Mechanize;
 #use LWP::Debug qw(+);
 use vars qw($VERSION);
 
-$VERSION = 0.06;
+$VERSION = 0.07;
 
 use constant BASE_URL        => 'https://www.secure.bnpparibas.net/controller?type=auth';
 use constant LOGIN_FORM_NAME => 'logincanalnet';
@@ -119,6 +119,37 @@ sub check_balance {
 
     $self->{ua}->get('/SAF_TLC');
 
+	# Check if the 100 login limit is reached:
+	if ( $self->{ua}->content =~ /Code erreur=13/ ){
+		carp "Trying to login more than 100 times with the same password\n";
+
+		# SAF_CHM is the page to chang password
+		$self->{ua}->get('/SAF_CHM');
+
+        my @numbers       = ( 0 .. 9 );
+        my $temp_password = join ( '', @numbers[ map { rand @numbers } ( 1 .. 6 ) ] );
+
+		carp "temp password: '$temp_password'\n";
+		
+		$self->{ua}->set_fields(
+			ch1 => $self->{password},
+	        ch2 => $temp_password,
+	        ch3 => $temp_password,
+		);
+		$self->{ua}->submit;
+
+		$self->{ua}->get('/SAF_CHM');
+		$self->{ua}->set_fields(
+	        ch1 => $temp_password,
+			ch2 => $self->{password},
+			ch3 => $self->{password},
+		);
+		$self->{ua}->submit;
+	
+    	$self->{ua}->get('/SAF_TLC');
+	}
+
+	
     # Check if the account download form is in the page.
     $self->{ua}->quiet(1);
     $self->{ua}->form_number(1)

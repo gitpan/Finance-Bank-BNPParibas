@@ -1,3 +1,8 @@
+0.07 Wed Aug 13 12:20:15 CEST 2003
+     - The accounts pages are disabled when the user logs in more than
+       100 times with the same password. This is now fixed by changing
+       the password to a temp one and back to the orginal.
+
 0.06 Tue Aug  5 12:37:19 CEST 2003
      - Added a "value date" field, which is present if the account is a
        company account (mat).
