@@ -1,0 +1,8 @@
+0.02 Mon May 26 00:54:33 CEST 2003
+     - Fixed a really embarassing typo in the module name from
+       'Finance::Bank::BNPParisbas' to 'Finance::Bank::BNPParibas'
+     - Rewrote the web-scraping part to adapat the new bnpnet 
+       interface.
+
+0.01 Mon Oct 28 16:40:28 CET 2002
+     - Initial release
