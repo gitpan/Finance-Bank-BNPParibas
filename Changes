@@ -1,3 +1,11 @@
+0.04 Sat Aug  2 07:39:54 CEST 2003
+     - The login page has changed. (Thanks to Sniper)
+  
+0.03 Fri May 30 12:13:56 CEST 2003
+     - Forgot to include the PREREQ_PM in the Makefile.PL
+     - The date of each statement is now YYYY-MM-DD instead of
+       DD/MM/YY
+
 0.02 Mon May 26 00:54:33 CEST 2003
      - Fixed a really embarassing typo in the module name from
        'Finance::Bank::BNPParisbas' to 'Finance::Bank::BNPParibas'

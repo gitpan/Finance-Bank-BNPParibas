@@ -2,10 +2,16 @@ package Finance::Bank::BNPParibas;
 use strict;
 use Carp qw(carp croak);
 use WWW::Mechanize;
+
 #use LWP::Debug qw(+);
 use vars qw($VERSION);
 
-$VERSION = 0.02;
+$VERSION = 0.04;
+
+use constant {
+    BASE_URL        => 'https://www.secure.bnpparibas.net/controller?type=auth',
+    LOGIN_FORM_NAME => 'logincanalnet',
+};
 
 =pod
 
@@ -70,65 +76,94 @@ sub check_balance {
     my @accounts;
 
     $opts{ua} ||= WWW::Mechanize->new(
-		agent      => "Finance::Bank::BNPParibas/$VERSION ($^O)",
-		cookie_jar => {},
-	);
+        agent      => "Finance::Bank::BNPParibas/$VERSION ($^O)",
+        cookie_jar => {},
+    );
 
     my $self = bless {%opts}, $class;
 
-	my $orig_r;
-	my $count = 0;
-	{
-	    $orig_r = $self->{ua}->get("https://www.secure.bnpparibas.net/controller?type=auth");
-		# loop detected, try again
-		++$count;
-		redo unless $orig_r->content || $count > 13;
-	}
-	croak $orig_r->error_as_HTML if $orig_r->is_error;
+    my $orig_r;
+    my $count = 0;
+    {
+        $orig_r = $self->{ua}->get(BASE_URL);
 
-	{
-		local $^W;	# both fields_are read-only
-		my $click_r = $self->{ua}->submit_form(
-			form_name => 'esp_form',
-			fields    => {
-				userid	 => $self->{username},
-				password => $self->{password},
-			}
-	);
-	croak $click_r->error_as_HTML if $click_r->is_error;
-	}	
-	
-	# XXX Without this header, bnpnet won't send the next page.
-	$self->{ua}->add_header(Accept => 'text/html');
-	
+        # loop detected, try again
+        ++$count;
+        redo unless $orig_r->content || $count > 13;
+    }
+    croak $orig_r->error_as_HTML if $orig_r->is_error;
+
+    # Check if the login form is in the page.
+    $self->{ua}->quiet(1);
+    $self->{ua}->form_name(LOGIN_FORM_NAME)
+      or croak "Cannot find the login form '" . LOGIN_FORM_NAME . "'";
+
+    # XXX Because the input below are created with javascript, we
+    # have to manually add them to the Form.
+    # see http://rt.cpan.org/NoAuth/Bug.html?id=2940
+    $self->{ua}->{form}
+      ->push_input( "text", { type => "text", name => "userid", value => "" } );
+    $self->{ua}->{form}
+	  ->push_input( "text", { type => "text", name => "password", value => "" } );
+
+    $self->{ua}->set_fields(
+        userid   => $self->{username},
+        password => $self->{password},
+    );
+
+    my $click_r = $self->{ua}->submit;
+
+    $self->{ua}->quiet(0);
+    croak $click_r->error_as_HTML if $click_r->is_error;
+
+    # XXX Without this header, bnpnet won't send the next page.
+    $self->{ua}->add_header( Accept => 'text/html' );
+
     $self->{ua}->get('/SAF_TLC');
-	$self->{ua}->submit_form(
-		form_number => 1,
-		fields    => {
-			ch_rop		=>'tous',
-			ch_rop_fmt_fic	=>'RTEXC',
-			ch_rop_fmt_dat	=>'JJMMAA',
-			ch_rop_fmt_sep	=>'VG',
-			ch_rop_dat		=>'tous',
-			ch_rop_dat_deb	=>'',
-			ch_rop_dat_fin	=>'',
-			ch_memo			=>'OUI',
-		},
-	);
+
+    # Check if the account download form is in the page.
+    $self->{ua}->quiet(1);
+    $self->{ua}->form_number(1)
+      or croak "Cannot find the account download form";
+    $self->{ua}->quiet(0);
+
+    $self->{ua}->submit_form(
+        form_number => 1,
+        fields      => {
+            ch_rop         => 'tous',
+            ch_rop_fmt_fic => 'RTEXC',
+            ch_rop_fmt_dat => 'JJMMAA',
+            ch_rop_fmt_sep => 'VG',
+            ch_rop_dat     => 'tous',
+            ch_rop_dat_deb => '',
+            ch_rop_dat_fin => '',
+            ch_memo        => 'OUI',
+        },
+    );
 
     foreach ( @{ $self->{ua}->{links} } ) {
         my $qif = $_->[0];
         next unless $qif =~ /\.exl$/;
 
         my $qif_r = $self->{ua}->get($qif);
-		carp $qif_r->error_as_HTML if $qif_r->is_error;
+        carp $qif_r->error_as_HTML if $qif_r->is_error;
 
         next
-          if $self->{ua}->{content} =~ /<html>/i;    # no operation for this account
+          if $self->{ua}->{content} =~
+          /<html>/i;    # no operation for this account
         push @accounts,
           Finance::Bank::BNPParibas::Account->new( $self->{ua}->content );
     }
     @accounts;
+}
+
+# The format of the date from BNPNet is DD/MM/YY, so we have to transform it to
+# an ISO format: YYYY-MM-DD
+sub _normalize_date {
+    my $date = shift;
+    my ( $d, $m, $y ) = split ( /\//, $date );
+    $y = $y =~ /^[789]\d$/ ? $y + 1900 : $y + 2000;
+    return "$y-$m-$d";
 }
 
 package Finance::Bank::BNPParibas::Account;
@@ -165,7 +200,7 @@ Return a list of Statement object (Finance::Bank::BNPParibas::Statement).
 
 sub new {
     my $class = shift;
-    chomp( my @content = split ( /\n/, shift ));
+    chomp( my @content = split ( /\n/, shift ) );
     my $header = shift @content;
 
     my ( $name, $account_no, $date, $balance ) =
@@ -176,7 +211,10 @@ sub new {
     $balance =~ s/,/./;
 
     my @statements;
-    push @statements, Finance::Bank::BNPParibas::Statement->new($_) foreach @content;
+    push @statements,
+      Finance::Bank::BNPParibas::Statement->new($_) foreach @content;
+
+    $date = Finance::Bank::BNPParibas::_normalize_date($date);
 
     bless {
         name       => $name,
@@ -202,7 +240,7 @@ package Finance::Bank::BNPParibas::Statement;
 
 =head2 date()
 
-Returns the date when the statement occured, in DD/MM/YY format.
+Returns the date when the statement occured, in YYYY-MM-DD format.
 
 =head2 description()
 
@@ -226,6 +264,7 @@ sub new {
 
     my @entry = split ( /\t/, $statement );
 
+    $entry[0] = Finance::Bank::BNPParibas::_normalize_date( $entry[0] );
     $entry[1] =~ s/\s+/ /g;
     $entry[2] =~ s/,/./;
 
