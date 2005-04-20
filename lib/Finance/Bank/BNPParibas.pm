@@ -6,9 +6,9 @@ use WWW::Mechanize;
 #use LWP::Debug qw(+);
 use vars qw($VERSION);
 
-$VERSION = 0.08;
+$VERSION = 0.09;
 
-use constant BASE_URL        => 'https://www.secure.bnpparibas.net/controller?type=auth';
+use constant BASE_URL        => 'https://www.secure.bnpparibas.net/controller?type=homeconnex';
 use constant LOGIN_FORM_NAME => 'logincanalnet';
 
 =pod
@@ -90,6 +90,11 @@ sub check_balance {
         redo unless $orig_r->content || $count > 13;
     }
     croak $orig_r->error_as_HTML if $orig_r->is_error;
+
+    # As of 2005-04-19, BNP changed their default login form to a fancy
+    # imagemap to compose the password, thankfully, they still provide
+    # access to the old login form:
+    $self->{ua}->follow_link( url_regex => qr/identifiant=secure_bnpparibas_net/ );
 
     # Check if the login form is in the page.
     $self->{ua}->quiet(1);
